@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.gis',
     'rest_framework',
     'django_extensions',
-    'api'
+    'api',
+    'rest_framework_swagger'
 ]
 
 MIDDLEWARE_CLASSES = [
