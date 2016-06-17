@@ -1,4 +1,4 @@
-from django.contrib.auth import authenticate, get_user_model
+from django.contrib.auth import authenticate, get_user_model, login
 from rest_framework import filters, mixins, status, viewsets
 from rest_framework.decorators import list_route
 from rest_framework.parsers import MultiPartParser
@@ -41,6 +41,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
+        login(request, user)
         return Response(
             UserSerializer(user).data,
             status=status.HTTP_201_CREATED
@@ -52,7 +53,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
         serializer.is_valid(raise_exception=True)
         user = authenticate(**serializer.data)
         if user:
-            user.sessions.all().delete()
+            login(request, user)
             return Response(UserSerializer(user).data)
         else:
             return Response(
