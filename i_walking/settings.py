@@ -78,6 +78,8 @@ WSGI_APPLICATION = 'i_walking.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.contrib.gis.db.backends.postgis',
+        'HOST': '127.0.0.1',
+        'PORT': '5432',
         'NAME': 'i_walking',
         'USER': 'i_walking',
         'PASSWORD': 'i_walking',
