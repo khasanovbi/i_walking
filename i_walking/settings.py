@@ -39,7 +39,8 @@ INSTALLED_APPS = [
     'rest_framework',
     'django_extensions',
     'api',
-    'rest_framework_swagger'
+    'rest_framework_swagger',
+    'guardian'
 ]
 
 MIDDLEWARE_CLASSES = [
@@ -123,6 +124,9 @@ USE_TZ = True
 
 STATIC_URL = '/static/'
 STATIC_ROOT = os.path.join(BASE_DIR, 'static')
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 AUTH_USER_MODEL = 'api.User'
 
