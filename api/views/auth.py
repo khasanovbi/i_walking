@@ -40,7 +40,7 @@ class UserViewSet(mixins.RetrieveModelMixin,
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
-        authenticate(username=user.username, password=user.password)
+        user.backend = 'django.contrib.auth.backends.ModelBackend'
         login(request, user)
         return Response(
             UserSerializer(user).data,

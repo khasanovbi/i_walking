@@ -137,7 +137,14 @@ AUTHENTICATION_BACKENDS = (
     'guardian.backends.ObjectPermissionBackend'
 )
 
+REST_FRAMEWORK = {
+    'DEFAULT_PERMISSION_CLASSES': ('rest_framework.permissions.IsAuthenticated',),
+    'PAGE_SIZE': 100,
+    'UPLOADED_FILES_USE_URL': True,
+}
+
 try:
     from .local import *
 except ImportError:
     pass
+
