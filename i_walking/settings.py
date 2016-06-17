@@ -130,3 +130,8 @@ AUTHENTICATION_BACKENDS = (
     'django.contrib.auth.backends.ModelBackend',
     'guardian.backends.ObjectPermissionBackend'
 )
+
+try:
+    from .local import *
+except ImportError:
+    pass
