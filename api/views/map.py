@@ -6,13 +6,14 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from api.serializers.map.route import InputRouteSerializer
+from api.serializers.map.route import InputRouteSerializer, SearchSerializer
 from utils.double_gis.service import DoubleGisService
 
 
 class AbstractRouteView(views.APIView):
     POINTS_COUNT = 8
     SPEED = 3 * 1000 / 60
+    SEARCH_STRING = None
     permission_classes = (AllowAny,)
     serializer_class = InputRouteSerializer
     api = DoubleGisService().get_api()
@@ -23,7 +24,7 @@ class AbstractRouteView(views.APIView):
                 'longitude': position[0],
                 'latitude': position[1]
             } for position in linestring['coordinates']
-        ]
+            ]
         return result
 
     def points_to_query(self, points):
@@ -36,20 +37,23 @@ class AbstractRouteView(views.APIView):
 
     def get_search_polygon(self, start_point):
         coordinates = start_point['coordinates']
-        point1 = Point((coordinates[0] - 0.02, coordinates[1] + 0.01))
-        point2 = Point((coordinates[0] + 0.02, coordinates[1] - 0.01))
+        point1 = Point((coordinates[0] - 2.9, coordinates[1] + 0.019))
+        point2 = Point((coordinates[0] + 2.9, coordinates[1] - 0.019))
         return point1, point2
 
     def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
-        response = self.api.geo.search(
-            q='Магазин',
+        params = dict(
             # point='{},{}'.format(*start_point['coordinates']),
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
-            type='building,poi',
             fields='items.geometry.selection'
         )
+        query = self.SEARCH_STRING
+        if query is not None:
+            params['q'] = query
+
+        response = self.api.geo.search(**params)
         if response['meta']['code'] != 200:
             raise ValidationError(response)
         return wkt.loads(response['result']['items'][0]['geometry']['selection'])
@@ -83,7 +87,7 @@ class AbstractRouteView(views.APIView):
         end_point = self.search_destination(start_point, 'street,building')
         print(
             'Оценочное время прогулки {walking_time} минут.'
-            .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
+                .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
         return Response(
             self.serialize_linestring(self.build_round_route((start_point, end_point, start_point)))
@@ -103,21 +107,56 @@ class BarRouteView(AbstractRouteView):
 
 
 class CultureRouteView(AbstractRouteView):
-    SEARCH_STRING = 'Театр музей'
+    SEARCH_STRING = 'Магазин'
 
 
 class RomanticRouteView(AbstractRouteView):
-    SEARCH_STRING = 'Мост'
+    SEARCH_STRING = 'Магазин'
 
 
 class RandomRouteView(AbstractRouteView):
-    def search_destination(self, start_point, type):
-        response = self.api.geo.search(
-            point='{},{}'.format(*start_point['coordinates']),
-            radius=250,
-            type='building,poi',
-            fields='items.geometry.selection'
+    SEARCH_STRING = None
+
+
+class SearchByNameView(views.APIView):
+    api = DoubleGisService().get_api()
+    serializer_class = SearchSerializer
+
+    def post(self, request, format=None):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
+        region_id = self.get_region(start_point)
+        response = self.api.catalog.branch.search(
+            q=serializer.data['query'],
+            region_id=region_id
         )
         if response['meta']['code'] != 200:
             raise ValidationError(response)
-        return wkt.loads(response['result']['items'][0]['geometry']['selection'])
+        return Response(response['result']['items'])
+
+
+class SearchView(views.APIView):
+    api = DoubleGisService().get_api()
+    serializer_class = SearchSerializer
+
+    def get_region(self, point):
+        response = self.api.region.search(q='{},{}'.format(*point['coordinates']))
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        return response['result']['items'][0]['id']
+
+    def get(self, request, format=None):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
+        region_id = self.get_region(start_point)
+        response = self.api.geo.search(
+            q=serializer.data['query'],
+            type='attraction,building,poi,street',
+            fields='items.geometry.selection',
+            region_id=region_id
+        )
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        return Response(response['result']['items'])

@@ -17,7 +17,8 @@ route_urlpatterns = [
 ]
 
 map_urlpatterns = [
-    url('^route/', include(route_urlpatterns))
+    url('^route/', include(route_urlpatterns)),
+    url('^search', SearchView.as_view()),
 ]
 
 urlpatterns = [
