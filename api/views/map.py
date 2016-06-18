@@ -6,8 +6,9 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from api.serializers.map.route import ConcreteRouteSerializer, SearchSerializer, \
-    POIRouteSerializer
+from api.serializers.map.route import (
+    ConcreteRouteSerializer, POIRouteSerializer, SearchSerializer
+)
 from utils.double_gis.service import DoubleGisService
 
 
@@ -66,15 +67,26 @@ class POIRouteView(AbstractRouteView):
         point2 = Point((coordinates[0] + 0.029, coordinates[1] - 0.019))
         return point1, point2
 
+    def get_search_query_by_type(self, type):
+        if type == POIRouteSerializer.BAR:
+            return 'Бар'
+        elif type == POIRouteSerializer.CULTURE:
+            return 'Театр'
+        elif type == POIRouteSerializer.FOOD:
+            return 'Продукты'
+        elif type == POIRouteSerializer.ROMANTIC:
+            return 'Кинотеатр'
+        elif type == POIRouteSerializer.INVESTIGATE:
+            return 'Памятник'
+
     def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
         params = dict(
-            # point='{},{}'.format(*start_point['coordinates']),
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
             fields='items.geometry.selection'
         )
-        query = self.SEARCH_STRING
+        query = self.get_search_query_by_type(type)
         if query is not None:
             params['q'] = query
 
@@ -88,10 +100,10 @@ class POIRouteView(AbstractRouteView):
         serializer.is_valid(raise_exception=True)
         raw_point = serializer.data['point']
         start_point = Point((raw_point['longitude'], raw_point['latitude']))
-        end_point = self.search_destination(start_point, 'street,building')
+        end_point = self.search_destination(start_point, serializer.data['type'])
         print(
             'Оценочное время прогулки {walking_time} минут.'
-            .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
+                .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
         return Response(
             self.serialize_linestring(self.build_route((start_point, end_point, start_point)))
