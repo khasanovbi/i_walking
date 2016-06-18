@@ -1,15 +1,22 @@
-import requests
-from django.conf import settings
+from geojson import Point
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from api.serializers.map.route import InputRouteSerializer
+from utils.double_gis.geometry import Parser
+from utils.double_gis.service import DoubleGisService
 
 
 class AbstractRouteView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = InputRouteSerializer
+    api = DoubleGisService().get_api()
+    parser = Parser()
+
+    def points_to_query(self, points):
+        str_points = ['{} {}'.format(*point['coordinates']) for point in points]
+        return ','.join(str_points)
 
 
 class InvestigateRouteView(AbstractRouteView):
@@ -32,24 +39,31 @@ class RomanticRouteView(AbstractRouteView):
     pass
 
 
-class RandomRouteView(generics.GenericAPIView):
+class RandomRouteView(AbstractRouteView):
     permission_classes = (AllowAny,)
     serializer_class = InputRouteSerializer
 
     def post(self, request, format=None):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
-        response = requests.get(
-            'http://catalog.api.2gis.ru/2.0/geo/search'
-            '?point={longitude},{latitude}'
-            '&type=street,building'
-            '&radius={radius}'
-            '&key={key}'
-            .format(
-                key=settings.DOUBLE_GIS_API_KEY,
-                radius=250,
-                longitude=serializer.data['longitude'],
-                latitude=serializer.data['latitude']
-            )
+        start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
+        response = self.api.geo.search(
+            point='{},{}'.format(*start_point['coordinates']),
+            radius=250,
+            type='building,poi',
+            page_size=1,
+            fields='items.geometry.selection'
         )
-        return Response(response.json())
+        item = response['result']['items'][0]['geometry']['selection']
+        end_point = self.parser.parse_point(item)
+        query_points = self.points_to_query((start_point, end_point))
+        print(query_points)
+        response = self.api.transport.calculate_directions(
+            waypoints=query_points
+            # start='{longitude},{latitude}'.format(
+            #     longitude=serializer.data['longitude'],
+            #     latitude=serializer.data['latitude']
+            # ),
+            # end=,
+        )
+        return Response(response)
