@@ -153,7 +153,7 @@ class SearchView(views.APIView):
         region_id = self.get_region(start_point)
         response = self.api.geo.search(
             q=serializer.data['query'],
-            type='attraction,building,poi,street',
+            type='attraction,building,poi',
             fields='items.geometry.selection',
             region_id=region_id
         )
