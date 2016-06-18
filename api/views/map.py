@@ -20,7 +20,7 @@ class AbstractRouteView(generics.GenericAPIView):
     def search_destination(self, start_point, type, time):
         response = self.api.geo.search(
             point='{},{}'.format(*start_point['coordinates']),
-            radius=250,  # asdas
+            radius=250,
             type=type,
             page_size=1,
             fields='items.geometry.selection'
@@ -72,5 +72,5 @@ class RandomRouteView(AbstractRouteView):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
-        end_point = self.search_destination(start_point, serializer.data['time'])
+        end_point = self.search_destination(start_point, 'street,building', serializer.data['time'])
         return Response(self.build_round_route((start_point, end_point)))
