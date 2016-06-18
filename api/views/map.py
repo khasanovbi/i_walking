@@ -57,13 +57,19 @@ class RandomRouteView(AbstractRouteView):
         item = response['result']['items'][0]['geometry']['selection']
         end_point = self.parser.parse_point(item)
         query_points = self.points_to_query((start_point, end_point))
-        print(query_points)
         response = self.api.transport.calculate_directions(
-            waypoints=query_points
-            # start='{longitude},{latitude}'.format(
-            #     longitude=serializer.data['longitude'],
-            #     latitude=serializer.data['latitude']
-            # ),
-            # end=,
+            waypoints=query_points,
+            edge_filter='pedestrian',
+            routing_type='shortest'
         )
+        legs = response['result']['items'][0]['legs']
+        linestrings = []
+        for leg in legs:
+            for step in leg['steps']:
+                for edge in step['edges']:
+                    linestrings.append(self.parser.parse(edge['geometry']['selection']))
+        # Первое и последнее ребро - это отметки нулевой длины
+        final_linestring_positions = []
+        for linestring in linestrings[:-1]:
+            final_linestring_positions.append(linestring['coordinates'][0])
         return Response(response)

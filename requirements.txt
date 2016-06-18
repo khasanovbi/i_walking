@@ -5,6 +5,7 @@ django-guardian==1.4.4
 django-rest-swagger==0.3.7
 djangorestframework==3.3.3
 geojson==1.3.2
+geomet==0.1.0
 Pillow==3.2.0
 psycopg2==2.6.1
 requests==2.10.0

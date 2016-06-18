@@ -9,7 +9,7 @@ class Parser(object):
     def parse_linestring(self, string):
         parsed_string = string[len(self.LINESTRING_TEMPLATE) + 1:-1]
         split_points = parsed_string.split(',')
-        return LineString(tuple([point.split(' ') for point in split_points]))
+        return LineString(tuple([tuple(map(float, point.split(' '))) for point in split_points]))
 
     def parse_polygon(self, string):
         parsed_string = string[len(self.POLYGON_TEMPLATE) + 1:-1]
