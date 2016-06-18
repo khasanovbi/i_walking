@@ -20,7 +20,7 @@ class AbstractRouteView(generics.GenericAPIView):
     def search_destination(self, start_point, type, time):
         response = self.api.geo.search(
             point='{},{}'.format(*start_point['coordinates']),
-            radius=250, # asdas
+            radius=250,  # asdas
             type=type,
             page_size=1,
             fields='items.geometry.selection'
