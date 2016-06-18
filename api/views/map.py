@@ -6,7 +6,8 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from api.serializers.map.route import ConcreteRouteSerializer, PointSerializer, SearchSerializer
+from api.serializers.map.route import ConcreteRouteSerializer, SearchSerializer, \
+    POIRouteSerializer
 from utils.double_gis.service import DoubleGisService
 
 
@@ -49,11 +50,11 @@ class AbstractRouteView(views.APIView):
         return LineString(tuple(final_linestring_positions))
 
 
-class AbstractPOIRouteView(AbstractRouteView):
+class POIRouteView(AbstractRouteView):
     POINTS_COUNT = 8
     SPEED = 3 * 1000 / 60
     SEARCH_STRING = None
-    serializer_class = PointSerializer
+    serializer_class = POIRouteSerializer
 
     def estimate_walking_time(self, point1, point2):
         # Время в минутах
@@ -85,39 +86,16 @@ class AbstractPOIRouteView(AbstractRouteView):
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
+        raw_point = serializer.data['point']
+        start_point = Point((raw_point['longitude'], raw_point['latitude']))
         end_point = self.search_destination(start_point, 'street,building')
         print(
             'Оценочное время прогулки {walking_time} минут.'
-                .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
+            .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
         return Response(
             self.serialize_linestring(self.build_route((start_point, end_point, start_point)))
         )
-
-
-class InvestigateRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = ''
-
-
-class FoodRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = 'Еда'
-
-
-class BarRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = 'Бар'
-
-
-class CultureRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = 'Магазин'
-
-
-class RomanticRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = 'Магазин'
-
-
-class RandomRouteView(AbstractPOIRouteView):
-    SEARCH_STRING = None
 
 
 class SearchByNameView(views.APIView):

@@ -8,13 +8,8 @@ router = DefaultRouter()
 router.register('user', UserViewSet)
 
 route_urlpatterns = [
-    url('^investigate', InvestigateRouteView.as_view()),
-    url('^food', FoodRouteView.as_view()),
-    url('^bar', BarRouteView.as_view()),
-    url('^culture', CultureRouteView.as_view()),
-    url('^romantic', RomanticRouteView.as_view()),
-    url('^random', RandomRouteView.as_view()),
     url('^concrete', ConcreteRouteView.as_view()),
+    url('^poi', POIRouteView.as_view()),
 ]
 
 map_urlpatterns = [
