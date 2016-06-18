@@ -7,6 +7,31 @@ from rest_framework.response import Response
 from api.serializers.map.route import InputRouteSerializer
 
 
+class AbstractRouteView(generics.GenericAPIView):
+    permission_classes = (AllowAny,)
+    serializer_class = InputRouteSerializer
+
+
+class InvestigateRouteView(AbstractRouteView):
+    pass
+
+
+class FoodRouteView(AbstractRouteView):
+    pass
+
+
+class BarRouteView(AbstractRouteView):
+    pass
+
+
+class CultureRouteView(AbstractRouteView):
+    pass
+
+
+class RomanticRouteView(AbstractRouteView):
+    pass
+
+
 class RandomRouteView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = InputRouteSerializer
@@ -20,9 +45,9 @@ class RandomRouteView(generics.GenericAPIView):
             '&type=street,building'
             '&radius={radius}'
             '&key={key}'
-                .format(
+            .format(
                 key=settings.DOUBLE_GIS_API_KEY,
-                radius=200,
+                radius=250,
                 longitude=serializer.data['longitude'],
                 latitude=serializer.data['latitude']
             )
