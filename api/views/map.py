@@ -111,4 +111,13 @@ class RomanticRouteView(AbstractRouteView):
 
 
 class RandomRouteView(AbstractRouteView):
-    SEARCH_STRING = None
+    def search_destination(self, start_point, type):
+        response = self.api.geo.search(
+            point='{},{}'.format(*start_point['coordinates']),
+            radius=250,
+            type='building,poi',
+            fields='items.geometry.selection'
+        )
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        return wkt.loads(response['result']['items'][0]['geometry']['selection'])
