@@ -111,6 +111,7 @@ class POIRouteView(AbstractRouteView):
 
 
 class SearchByNameView(views.APIView):
+    permission_classes = (AllowAny,)
     api = DoubleGisService().get_api()
     serializer_class = SearchSerializer
 
@@ -154,6 +155,7 @@ class ConcreteRouteView(AbstractRouteView):
 
 
 class SearchView(views.APIView):
+    permission_classes = (AllowAny,)
     api = DoubleGisService().get_api()
     serializer_class = SearchSerializer
 
