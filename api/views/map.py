@@ -40,7 +40,7 @@ class AbstractRouteView(views.APIView):
         point2 = Point((coordinates[0] + 0.02, coordinates[1] - 0.01))
         return point1, point2
 
-    def search_destination(self, start_point, type, time):
+    def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
         response = self.api.geo.search(
             q='Магазин',
@@ -80,7 +80,7 @@ class AbstractRouteView(views.APIView):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
-        end_point = self.search_destination(start_point, 'street,building', serializer.data['time'])
+        end_point = self.search_destination(start_point, 'street,building')
         print(
             'Оценочное время прогулки {walking_time} минут.'
             .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
