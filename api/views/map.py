@@ -180,7 +180,8 @@ class SearchView(views.APIView):
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
-        start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
+        raw_point = serializer.data['point']
+        start_point = Point((raw_point['longitude'], raw_point['latitude']))
         region_id = self.get_region(start_point)
         response = self.api.geo.search(
             q=serializer.data['query'],
