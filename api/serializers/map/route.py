@@ -28,8 +28,9 @@ class POIRouteSerializer(serializers.Serializer):
 
 
 # noinspection PyAbstractClass
-class SearchSerializer(PointSerializer):
+class SearchSerializer(serializers.Serializer):
     query = serializers.CharField()
+    point = PointSerializer()
 
 
 # noinspection PyAbstractClass
