@@ -2,10 +2,17 @@ from rest_framework import serializers
 
 
 # noinspection PyAbstractClass
-class InputRouteSerializer(serializers.Serializer):
+class PointSerializer(serializers.Serializer):
     longitude = serializers.FloatField()
     latitude = serializers.FloatField()
 
 
-class SearchSerializer(InputRouteSerializer):
+# noinspection PyAbstractClass
+class SearchSerializer(PointSerializer):
     query = serializers.CharField()
+
+
+# noinspection PyAbstractClass
+class ConcreteRouteSerializer(serializers.Serializer):
+    start_point = PointSerializer()
+    end_point = PointSerializer()

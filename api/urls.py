@@ -14,6 +14,7 @@ route_urlpatterns = [
     url('^culture', CultureRouteView.as_view()),
     url('^romantic', RomanticRouteView.as_view()),
     url('^random', RandomRouteView.as_view()),
+    url('^concrete', ConcreteRouteView.as_view()),
 ]
 
 map_urlpatterns = [

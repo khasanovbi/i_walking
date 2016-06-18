@@ -6,17 +6,17 @@ from rest_framework.exceptions import ValidationError
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
-from api.serializers.map.route import InputRouteSerializer, SearchSerializer
+from api.serializers.map.route import ConcreteRouteSerializer, PointSerializer, SearchSerializer
 from utils.double_gis.service import DoubleGisService
 
 
 class AbstractRouteView(views.APIView):
-    POINTS_COUNT = 8
-    SPEED = 3 * 1000 / 60
-    SEARCH_STRING = None
     permission_classes = (AllowAny,)
-    serializer_class = InputRouteSerializer
     api = DoubleGisService().get_api()
+
+    def points_to_query(self, points):
+        str_points = ['{} {}'.format(*point['coordinates']) for point in points]
+        return ','.join(str_points)
 
     def serialize_linestring(self, linestring):
         result = [
@@ -27,9 +27,33 @@ class AbstractRouteView(views.APIView):
             ]
         return result
 
-    def points_to_query(self, points):
-        str_points = ['{} {}'.format(*point['coordinates']) for point in points]
-        return ','.join(str_points)
+    def build_route(self, points, alternative=0):
+        query_points = self.points_to_query(points)
+        response = self.api.transport.calculate_directions(
+            waypoints=query_points,
+            edge_filter='pedestrian',
+            alternative=alternative,
+        )
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        legs = response['result']['items'][0]['legs']
+        linestrings = []
+        for leg in legs:
+            for step in leg['steps']:
+                for edge in step['edges']:
+                    linestrings.append(wkt.loads(edge['geometry']['selection']))
+        # Первое и последнее ребро - это отметки нулевой длины
+        final_linestring_positions = []
+        for linestring in linestrings[:-1]:
+            final_linestring_positions.extend(linestring['coordinates'][1:])
+        return LineString(tuple(final_linestring_positions))
+
+
+class AbstractPOIRouteView(AbstractRouteView):
+    POINTS_COUNT = 8
+    SPEED = 3 * 1000 / 60
+    SEARCH_STRING = None
+    serializer_class = PointSerializer
 
     def estimate_walking_time(self, point1, point2):
         # Время в минутах
@@ -37,8 +61,8 @@ class AbstractRouteView(views.APIView):
 
     def get_search_polygon(self, start_point):
         coordinates = start_point['coordinates']
-        point1 = Point((coordinates[0] - 2.9, coordinates[1] + 0.019))
-        point2 = Point((coordinates[0] + 2.9, coordinates[1] - 0.019))
+        point1 = Point((coordinates[0] - 0.029, coordinates[1] + 0.019))
+        point2 = Point((coordinates[0] + 0.029, coordinates[1] - 0.019))
         return point1, point2
 
     def search_destination(self, start_point, type):
@@ -58,28 +82,6 @@ class AbstractRouteView(views.APIView):
             raise ValidationError(response)
         return wkt.loads(response['result']['items'][0]['geometry']['selection'])
 
-    def build_round_route(self, points):
-        query_points = self.points_to_query(points)
-        print(query_points)
-        response = self.api.transport.calculate_directions(
-            waypoints=query_points,
-            edge_filter='pedestrian',
-            routing_type='shortest'
-        )
-        if response['meta']['code'] != 200:
-            raise ValidationError(response)
-        legs = response['result']['items'][0]['legs']
-        linestrings = []
-        for leg in legs:
-            for step in leg['steps']:
-                for edge in step['edges']:
-                    linestrings.append(wkt.loads(edge['geometry']['selection']))
-        # Первое и последнее ребро - это отметки нулевой длины
-        final_linestring_positions = []
-        for linestring in linestrings[:-1]:
-            final_linestring_positions.extend(linestring['coordinates'][1:])
-        return LineString(tuple(final_linestring_positions))
-
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -90,37 +92,43 @@ class AbstractRouteView(views.APIView):
                 .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
         return Response(
-            self.serialize_linestring(self.build_round_route((start_point, end_point, start_point)))
+            self.serialize_linestring(self.build_route((start_point, end_point, start_point)))
         )
 
 
-class InvestigateRouteView(AbstractRouteView):
+class InvestigateRouteView(AbstractPOIRouteView):
     SEARCH_STRING = ''
 
 
-class FoodRouteView(AbstractRouteView):
+class FoodRouteView(AbstractPOIRouteView):
     SEARCH_STRING = 'Еда'
 
 
-class BarRouteView(AbstractRouteView):
+class BarRouteView(AbstractPOIRouteView):
     SEARCH_STRING = 'Бар'
 
 
-class CultureRouteView(AbstractRouteView):
+class CultureRouteView(AbstractPOIRouteView):
     SEARCH_STRING = 'Магазин'
 
 
-class RomanticRouteView(AbstractRouteView):
+class RomanticRouteView(AbstractPOIRouteView):
     SEARCH_STRING = 'Магазин'
 
 
-class RandomRouteView(AbstractRouteView):
+class RandomRouteView(AbstractPOIRouteView):
     SEARCH_STRING = None
 
 
 class SearchByNameView(views.APIView):
     api = DoubleGisService().get_api()
     serializer_class = SearchSerializer
+
+    def get_region(self, point):
+        response = self.api.region.search(q='{},{}'.format(*point['coordinates']))
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        return response['result']['items'][0]['id']
 
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
@@ -136,6 +144,24 @@ class SearchByNameView(views.APIView):
         return Response(response['result']['items'])
 
 
+class ConcreteRouteView(AbstractRouteView):
+    serializer_class = ConcreteRouteSerializer
+    ALTERNATIVES_COUNT = 5
+
+    def post(self, request, format=None):
+        serializer = self.serializer_class(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        raw_start_point = serializer.data['start_point']
+        raw_end_point = serializer.data['end_point']
+        start_point = Point((raw_start_point['longitude'], raw_start_point['latitude']))
+        end_point = Point((raw_end_point['longitude'], raw_end_point['latitude']))
+
+        return Response(
+            self.serialize_linestring(
+                self.build_route((start_point, end_point), self.ALTERNATIVES_COUNT)
+            )
+        )
+
 class SearchView(views.APIView):
     api = DoubleGisService().get_api()
     serializer_class = SearchSerializer
@@ -146,7 +172,7 @@ class SearchView(views.APIView):
             raise ValidationError(response)
         return response['result']['items'][0]['id']
 
-    def get(self, request, format=None):
+    def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         start_point = Point((serializer.data['longitude'], serializer.data['latitude']))
