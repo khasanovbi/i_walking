@@ -72,4 +72,4 @@ class RandomRouteView(AbstractRouteView):
         final_linestring_positions = []
         for linestring in linestrings[:-1]:
             final_linestring_positions.extend(linestring['coordinates'][1:])
-        return Response(LineString(final_linestring_positions))
+        return Response(LineString(tuple(final_linestring_positions)))
