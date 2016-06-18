@@ -1,0 +1,2 @@
+class DoubleGisService(object):
+    pass

@@ -143,8 +143,4 @@ REST_FRAMEWORK = {
     'UPLOADED_FILES_USE_URL': True,
 }
 
-try:
-    from .local import *
-except ImportError:
-    pass
-
+from .local import *

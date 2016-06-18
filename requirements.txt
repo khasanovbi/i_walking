@@ -1,4 +1,3 @@
-2gis==0.9.0
 Django==1.9.7
 django-extensions==1.6.7
 django-filter==0.13.0
@@ -7,3 +6,4 @@ django-rest-swagger==0.3.7
 djangorestframework==3.3.3
 Pillow==3.2.0
 psycopg2==2.6.1
+requests==2.10.0
