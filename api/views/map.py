@@ -162,6 +162,7 @@ class ConcreteRouteView(AbstractRouteView):
             )
         )
 
+
 class SearchView(views.APIView):
     api = DoubleGisService().get_api()
     serializer_class = SearchSerializer
@@ -171,6 +172,18 @@ class SearchView(views.APIView):
         if response['meta']['code'] != 200:
             raise ValidationError(response)
         return response['result']['items'][0]['id']
+
+    def normalize_response(self, raw_items):
+        result = []
+        for raw_item in raw_items:
+            raw_point = raw_item['geometry']['selection']
+            point_coordinates = wkt.loads(raw_point)['coordinates']
+            raw_item['geometry'] = {
+                'longitude': point_coordinates[0],
+                'latitude': point_coordinates[1]
+            }
+            result.append(raw_item)
+        return result
 
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
@@ -185,4 +198,6 @@ class SearchView(views.APIView):
         )
         if response['meta']['code'] != 200:
             raise ValidationError(response)
-        return Response(response['result']['items'])
+        raw_items = response['result']['items']
+        items = self.normalize_response(raw_items)
+        return Response(items)
