@@ -1,18 +1,18 @@
-from geojson import Point
+from geojson import LineString, Point
 from rest_framework import generics
 from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from api.serializers.map.route import InputRouteSerializer
-from utils.double_gis.geometry import Parser
 from utils.double_gis.service import DoubleGisService
+
+from geomet import wkt
 
 
 class AbstractRouteView(generics.GenericAPIView):
     permission_classes = (AllowAny,)
     serializer_class = InputRouteSerializer
     api = DoubleGisService().get_api()
-    parser = Parser()
 
     def points_to_query(self, points):
         str_points = ['{} {}'.format(*point['coordinates']) for point in points]
@@ -55,7 +55,7 @@ class RandomRouteView(AbstractRouteView):
             fields='items.geometry.selection'
         )
         item = response['result']['items'][0]['geometry']['selection']
-        end_point = self.parser.parse_point(item)
+        end_point = wkt.loads(item)
         query_points = self.points_to_query((start_point, end_point))
         response = self.api.transport.calculate_directions(
             waypoints=query_points,
@@ -67,9 +67,9 @@ class RandomRouteView(AbstractRouteView):
         for leg in legs:
             for step in leg['steps']:
                 for edge in step['edges']:
-                    linestrings.append(self.parser.parse(edge['geometry']['selection']))
+                    linestrings.append(wkt.loads(edge['geometry']['selection']))
         # Первое и последнее ребро - это отметки нулевой длины
         final_linestring_positions = []
         for linestring in linestrings[:-1]:
-            final_linestring_positions.append(linestring['coordinates'][0])
-        return Response(response)
+            final_linestring_positions.extend(linestring['coordinates'][1:])
+        return Response(LineString(final_linestring_positions))
