@@ -84,7 +84,8 @@ class POIRouteView(AbstractRouteView):
         params = dict(
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
-            fields='items.geometry.selection'
+            fields='items.geometry.selection',
+            type='attraction,building,poi'
         )
         query = self.get_search_query_by_type(type)
         if query is not None:
@@ -92,7 +93,9 @@ class POIRouteView(AbstractRouteView):
 
         response = self.api.geo.search(**params)
         if response['meta']['code'] != 200:
-            raise ValidationError(response)
+            response = self.api.catalog.branch.search(**params)
+            if response['meta']['code'] != 200:
+                raise ValidationError(response)
         return wkt.loads(response['result']['items'][0]['geometry']['selection'])
 
     def post(self, request, format=None):
@@ -146,7 +149,6 @@ class ConcreteRouteView(AbstractRouteView):
         raw_end_point = serializer.data['end_point']
         start_point = Point((raw_start_point['longitude'], raw_start_point['latitude']))
         end_point = Point((raw_end_point['longitude'], raw_end_point['latitude']))
-
         return Response(
             self.serialize_linestring(
                 self.build_route((start_point, end_point), self.ALTERNATIVES_COUNT)
