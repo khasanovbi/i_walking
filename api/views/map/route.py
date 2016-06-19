@@ -93,6 +93,7 @@ class POIRouteView(AbstractRouteView):
     def search_optimal_organization_point(self, start_point, items):
         optimal_point = None
         optimal_time = None
+        metadata = None
         for item in items:
             raw_point = item['point']
             item_point = Point((raw_point['lon'], raw_point['lat']))
@@ -101,7 +102,13 @@ class POIRouteView(AbstractRouteView):
                 math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
                 optimal_time = walking_time
                 optimal_point = item_point
-        return optimal_point
+                metadata = item
+        position = optimal_point['coordinates']
+        metadata['point'] = {
+            'longitude': position[0],
+            'latitude': position[1]
+        }
+        return optimal_point, metadata
 
     def search_organization_point(self, start_point, point1, point2, query):
         params = dict(
@@ -120,6 +127,7 @@ class POIRouteView(AbstractRouteView):
     def search_optimal_geo_point(self, start_point, items):
         optimal_point = None
         optimal_time = None
+        metadata = None
         for item in items:
             item_point = wkt.loads(item['geometry']['selection'])
             walking_time = self.estimate_walking_time(start_point, item_point)
@@ -127,7 +135,13 @@ class POIRouteView(AbstractRouteView):
                 math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
                 optimal_time = walking_time
                 optimal_point = item_point
-        return optimal_point
+                metadata = item
+        position = optimal_point['coordinates']
+        metadata['point'] = {
+            'longitude': position[0],
+            'latitude': position[1]
+        }
+        return optimal_point, metadata
 
     def search_geo_point(self, start_point, point1, point2, query):
         params = dict(
@@ -147,23 +161,28 @@ class POIRouteView(AbstractRouteView):
     def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
         query = self.get_search_query_by_type(type)
-        result_point = self.search_geo_point(start_point, point1, point2, query)
-        if result_point is None:
+        result_point_data = self.search_geo_point(start_point, point1, point2, query)
+        if result_point_data is None:
             return self.search_organization_point(start_point, point1, point2, query)
-        return result_point
+        return result_point_data
 
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
         serializer.is_valid(raise_exception=True)
         raw_point = serializer.data['point']
         start_point = Point((raw_point['longitude'], raw_point['latitude']))
-        end_point = self.search_destination(start_point, serializer.data['type'])
+        end_point, metadata = self.search_destination(start_point, serializer.data['type'])
         print(
             'Оценочное время прогулки {walking_time} минут.'
-                .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
+            .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
         route_linestring = self.build_route(self.get_points_for_round_route(start_point, end_point))
-        return Response(self.serialize_linestring(route_linestring))
+        return Response(
+            {
+                'route': self.serialize_linestring(route_linestring),
+                'points': [metadata]
+            }
+        )
 
 
 class ConcreteRouteView(AbstractRouteView):
@@ -178,7 +197,10 @@ class ConcreteRouteView(AbstractRouteView):
         start_point = Point((raw_start_point['longitude'], raw_start_point['latitude']))
         end_point = Point((raw_end_point['longitude'], raw_end_point['latitude']))
         return Response(
-            self.serialize_linestring(
-                self.build_route((start_point, end_point), self.ALTERNATIVES_COUNT)
-            )
+            {
+                'route': self.serialize_linestring(
+                    self.build_route((start_point, end_point), self.ALTERNATIVES_COUNT)
+                ),
+                'points': []
+            }
         )
