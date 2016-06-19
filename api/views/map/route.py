@@ -18,6 +18,7 @@ class AbstractRouteView(views.APIView):
     permission_classes = (AllowAny,)
     api = DoubleGisService().get_api()
     AVERAGE_STRIDE_LENGTH = 0.6  # в метрах
+    METADATA_ROUTE_POINTS_COUNT = 4
 
     def points_to_query(self, points):
         str_points = ['{} {}'.format(*point['coordinates']) for point in points]
@@ -66,8 +67,37 @@ class AbstractRouteView(views.APIView):
             final_linestring_positions.extend(linestring['coordinates'][1:])
         return LineString(tuple(final_linestring_positions))
 
-    # def _get_route_points_data(self, route_points):
-    #     self.api.
+    def _get_route_points_metadata(self, route_points):
+        route_points_count = len(route_points)
+
+        if route_points_count <= self.METADATA_ROUTE_POINTS_COUNT:
+            metadata_route_points = route_points
+        else:
+            metadata_route_points = [
+                route_points[i * (route_points_count // self.METADATA_ROUTE_POINTS_COUNT)]
+                for i in range(1, self.METADATA_ROUTE_POINTS_COUNT)
+                ]
+        metadata = []
+        for point in metadata_route_points:
+            response = self.api.geo.search(
+                point='{},{}'.format(*point['coordinates']),
+                fields='items.geometry.selection',
+                radius=100,
+                type='attraction,poi',
+                page_size=1
+            )
+            if response['meta']['code'] == 200:
+                item = response['result']['items'][0]
+                raw_point = wkt.loads(item['geometry']['selection'])
+                position = raw_point['coordinates']
+                item['point'] = {
+                    'longitude': position[0],
+                    'latitude': position[1]
+                }
+                metadata.append(item)
+            else:
+                pass
+        return metadata
 
     def prepare_route_response(self, walking_time, route_points, end_point_metadata=None,
                                alternatives_count=0):
@@ -77,6 +107,7 @@ class AbstractRouteView(views.APIView):
                 'route': self.serialize_linestring(
                     self.build_route(route_points, alternatives_count)
                 ),
+                'route_points': self._get_route_points_metadata(route_points),
                 'steps_count': round(self.SPEED * walking_time / self.AVERAGE_STRIDE_LENGTH),
                 'end_point_data': end_point_metadata
             }
