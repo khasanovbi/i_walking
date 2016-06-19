@@ -79,6 +79,21 @@ class POIRouteView(AbstractRouteView):
         elif type == POIRouteSerializer.INVESTIGATE:
             return 'Памятник'
 
+    def search_organization(self, point1, point2, query):
+        params = dict(
+            point1='{},{}'.format(*point1['coordinates']),
+            point2='{},{}'.format(*point2['coordinates']),
+            fields='items.point',
+            type='attraction,building,poi'
+        )
+        if query is not None:
+            params['q'] = query
+        response = self.api.catalog.branch.search(**params)
+        if response['meta']['code'] != 200:
+            raise ValidationError(response)
+        raw_point = response['result']['items'][0]['point']
+        return Point((raw_point['lon'], raw_point['lat']))
+
     def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
         params = dict(
@@ -93,9 +108,8 @@ class POIRouteView(AbstractRouteView):
 
         response = self.api.geo.search(**params)
         if response['meta']['code'] != 200:
-            response = self.api.catalog.branch.search(**params)
-            if response['meta']['code'] != 200:
-                raise ValidationError(response)
+            response = self.search_organization(point1, point2, query)
+
         return wkt.loads(response['result']['items'][0]['geometry']['selection'])
 
     def post(self, request, format=None):
