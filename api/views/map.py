@@ -105,6 +105,8 @@ class POIRouteView(AbstractRouteView):
             params['q'] = query
         response = self.api.geo.search(**params)
         if response['meta']['code'] == 200:
+            if query is None:
+                raise ValidationError(response)
             return wkt.loads(response['result']['items'][0]['geometry']['selection'])
 
     def search_destination(self, start_point, type):

@@ -37,4 +37,5 @@ class DoubleGisService(object):
         url_parts[4] = urlencode(params)
         url = urlunparse(url_parts)
         print(url)
+        print(params)
         return requests.get(url).json()
