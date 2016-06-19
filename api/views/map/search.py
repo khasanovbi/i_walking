@@ -59,6 +59,8 @@ class SearchView(AbstractSearchView):
                     'longitude': point_coordinates[0],
                     'latitude': point_coordinates[1]
                 }
+                for key in ('id', 'point', 'ads'):
+                    del raw_item[key]
                 result.append(raw_item)
         return result
 
