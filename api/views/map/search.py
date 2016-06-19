@@ -53,12 +53,13 @@ class SearchView(AbstractSearchView):
         result = []
         for raw_item in raw_items:
             raw_point = raw_item['point']
-            point_coordinates = raw_point['lon'], raw_point['lat']
-            raw_item['geometry'] = {
-                'longitude': point_coordinates[0],
-                'latitude': point_coordinates[1]
-            }
-            result.append(raw_item)
+            if raw_point is not None:
+                point_coordinates = raw_point['lon'], raw_point['lat']
+                raw_item['geometry'] = {
+                    'longitude': point_coordinates[0],
+                    'latitude': point_coordinates[1]
+                }
+                result.append(raw_item)
         return result
 
     def post(self, request, format=None):
