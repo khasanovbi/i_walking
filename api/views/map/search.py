@@ -37,11 +37,23 @@ class SearchByNameView(AbstractSearchView):
 
 
 class SearchView(AbstractSearchView):
-    def normalize_response(self, raw_items):
+    def normalize_geo_response(self, raw_items):
         result = []
         for raw_item in raw_items:
             raw_point = raw_item['geometry']['selection']
             point_coordinates = wkt.loads(raw_point)['coordinates']
+            raw_item['geometry'] = {
+                'longitude': point_coordinates[0],
+                'latitude': point_coordinates[1]
+            }
+            result.append(raw_item)
+        return result
+
+    def normalize_branch_response(self, raw_items):
+        result = []
+        for raw_item in raw_items:
+            raw_point = raw_item['point']
+            point_coordinates = raw_point['lon'], raw_point['lat']
             raw_item['geometry'] = {
                 'longitude': point_coordinates[0],
                 'latitude': point_coordinates[1]
@@ -62,7 +74,16 @@ class SearchView(AbstractSearchView):
             region_id=region_id
         )
         if response['meta']['code'] != 200:
-            raise ValidationError(response)
-        raw_items = response['result']['items']
-        items = self.normalize_response(raw_items)
+            response = self.api.catalog.branch.search(
+                q=serializer.data['query'],
+                region_id=region_id,
+                fields='items.point'
+            )
+            raw_items = response['result']['items']
+            items = self.normalize_branch_response(raw_items)
+            if response['meta']['code'] != 200:
+                raise ValidationError(response)
+        else:
+            raw_items = response['result']['items']
+            items = self.normalize_geo_response(raw_items)
         return Response(items)
