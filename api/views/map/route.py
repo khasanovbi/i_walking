@@ -1,3 +1,5 @@
+import math
+
 from geojson import LineString, Point
 from geomet import wkt
 from geopy.distance import great_circle
@@ -63,10 +65,12 @@ class POIRouteView(AbstractRouteView):
     SPEED = 3 * 1000 / 60
     SEARCH_STRING = None
     serializer_class = POIRouteSerializer
+    OPTIMAL_WALK_TIME = 30  # в минутах
 
     def estimate_walking_time(self, point1, point2):
         # Время в минутах
-        return great_circle(point1['coordinates'], point2['coordinates']).meters / self.SPEED
+        return (math.pi * great_circle(point1['coordinates'], point2['coordinates']).meters /
+                self.SPEED)
 
     def get_search_polygon(self, start_point):
         coordinates = start_point['coordinates']
@@ -86,7 +90,20 @@ class POIRouteView(AbstractRouteView):
         elif type == POIRouteSerializer.INVESTIGATE:
             return 'Памятник'
 
-    def search_organization(self, point1, point2, query):
+    def search_optimal_organization_point(self, start_point, items):
+        optimal_point = None
+        optimal_time = None
+        for item in items:
+            raw_point = item['point']
+            item_point = Point((raw_point['lon'], raw_point['lat']))
+            walking_time = self.estimate_walking_time(start_point, item_point)
+            if (optimal_time is None or math.fabs(optimal_time - self.OPTIMAL_WALK_TIME) >
+                math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
+                optimal_time = walking_time
+                optimal_point = item_point
+        return optimal_point
+
+    def search_organization_point(self, start_point, point1, point2, query):
         params = dict(
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
@@ -98,10 +115,21 @@ class POIRouteView(AbstractRouteView):
         response = self.api.catalog.branch.search(**params)
         if response['meta']['code'] != 200:
             raise ValidationError(response)
-        raw_point = response['result']['items'][0]['point']
-        return Point((raw_point['lon'], raw_point['lat']))
+        return self.search_optimal_organization_point(start_point, response['result']['items'])
 
-    def search_geo_point(self, point1, point2, query):
+    def search_optimal_geo_point(self, start_point, items):
+        optimal_point = None
+        optimal_time = None
+        for item in items:
+            item_point = wkt.loads(item['geometry']['selection'])
+            walking_time = self.estimate_walking_time(start_point, item_point)
+            if (optimal_time is None or math.fabs(optimal_time - self.OPTIMAL_WALK_TIME) >
+                math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
+                optimal_time = walking_time
+                optimal_point = item_point
+        return optimal_point
+
+    def search_geo_point(self, start_point, point1, point2, query):
         params = dict(
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
@@ -112,16 +140,16 @@ class POIRouteView(AbstractRouteView):
             params['q'] = query
         response = self.api.geo.search(**params)
         if response['meta']['code'] == 200:
-            return wkt.loads(response['result']['items'][0]['geometry']['selection'])
+            return self.search_optimal_geo_point(start_point, response['result']['items'])
         elif query is None:
             raise ValidationError(response)
 
     def search_destination(self, start_point, type):
         point1, point2 = self.get_search_polygon(start_point)
         query = self.get_search_query_by_type(type)
-        result_point = self.search_geo_point(point1, point2, query)
+        result_point = self.search_geo_point(start_point, point1, point2, query)
         if result_point is None:
-            return self.search_organization(point1, point2, query)
+            return self.search_organization_point(start_point, point1, point2, query)
         return result_point
 
     def post(self, request, format=None):
