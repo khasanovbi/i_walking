@@ -108,8 +108,7 @@ class POIRouteView(AbstractRouteView):
 
         response = self.api.geo.search(**params)
         if response['meta']['code'] != 200:
-            response = self.search_organization(point1, point2, query)
-
+            return self.search_organization(point1, point2, query)
         return wkt.loads(response['result']['items'][0]['geometry']['selection'])
 
     def post(self, request, format=None):
