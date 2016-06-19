@@ -73,7 +73,7 @@ class AbstractRouteView(views.APIView):
                                alternatives_count=0):
         return Response(
             {
-                'walking_time': walking_time,
+                'walking_time': round(walking_time, 2),
                 'route': self.serialize_linestring(
                     self.build_route(route_points, alternatives_count)
                 ),
