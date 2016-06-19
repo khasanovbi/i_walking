@@ -113,7 +113,7 @@ class POIRouteView(AbstractRouteView):
         for item in items:
             raw_point = item['point']
             item_point = Point((raw_point['lon'], raw_point['lat']))
-            walking_time = self.estimate_walking_time(start_point, item_point)
+            walking_time = math.pi * self.estimate_walking_time(start_point, item_point)
             if (optimal_time is None or math.fabs(optimal_time - self.OPTIMAL_WALK_TIME) >
                 math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
                 optimal_time = walking_time
@@ -146,7 +146,7 @@ class POIRouteView(AbstractRouteView):
         metadata = None
         for item in items:
             item_point = wkt.loads(item['geometry']['selection'])
-            walking_time = self.estimate_walking_time(start_point, item_point)
+            walking_time = math.pi * self.estimate_walking_time(start_point, item_point)
             if (optimal_time is None or math.fabs(optimal_time - self.OPTIMAL_WALK_TIME) >
                 math.fabs(walking_time - self.OPTIMAL_WALK_TIME)):
                 optimal_time = walking_time
