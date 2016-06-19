@@ -94,22 +94,26 @@ class POIRouteView(AbstractRouteView):
         raw_point = response['result']['items'][0]['point']
         return Point((raw_point['lon'], raw_point['lat']))
 
-    def search_destination(self, start_point, type):
-        point1, point2 = self.get_search_polygon(start_point)
+    def search_geo_point(self, point1, point2, query):
         params = dict(
             point1='{},{}'.format(*point1['coordinates']),
             point2='{},{}'.format(*point2['coordinates']),
             fields='items.geometry.selection',
             type='attraction,building,poi'
         )
-        query = self.get_search_query_by_type(type)
         if query is not None:
             params['q'] = query
-
         response = self.api.geo.search(**params)
-        if response['meta']['code'] != 200:
+        if response['meta']['code'] == 200:
+            return wkt.loads(response['result']['items'][0]['geometry']['selection'])
+
+    def search_destination(self, start_point, type):
+        point1, point2 = self.get_search_polygon(start_point)
+        query = self.get_search_query_by_type(type)
+        result_point = self.search_geo_point(point1, point2, query)
+        if result_point is None:
             return self.search_organization(point1, point2, query)
-        return wkt.loads(response['result']['items'][0]['geometry']['selection'])
+        return result_point
 
     def post(self, request, format=None):
         serializer = self.serializer_class(data=request.data)
