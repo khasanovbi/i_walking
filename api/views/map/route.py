@@ -7,6 +7,7 @@ from rest_framework.permissions import AllowAny
 from rest_framework.response import Response
 
 from api.serializers.map.route import ConcreteRouteSerializer, POIRouteSerializer
+from utils.double_gis.geometry import get_center_of_points, get_normal_vector
 from utils.double_gis.service import DoubleGisService
 
 
@@ -26,6 +27,15 @@ class AbstractRouteView(views.APIView):
             } for position in linestring['coordinates']
             ]
         return result
+
+    def get_points_for_round_route(self, start_point, end_point):
+        center_point_coordinates = get_center_of_points(start_point, end_point)
+        normal_vector = get_normal_vector(start_point, end_point)
+        second_point = Point((center_point_coordinates[0] + normal_vector[0],
+                              center_point_coordinates[1] + normal_vector[1]))
+        fourth_point = Point((center_point_coordinates[0] - normal_vector[0],
+                              center_point_coordinates[1] - normal_vector[1]))
+        return start_point, second_point, end_point, fourth_point, start_point
 
     def build_route(self, points, alternative=0):
         query_points = self.points_to_query(points)
@@ -50,7 +60,6 @@ class AbstractRouteView(views.APIView):
 
 
 class POIRouteView(AbstractRouteView):
-    POINTS_COUNT = 8
     SPEED = 3 * 1000 / 60
     SEARCH_STRING = None
     serializer_class = POIRouteSerializer
@@ -125,9 +134,8 @@ class POIRouteView(AbstractRouteView):
             'Оценочное время прогулки {walking_time} минут.'
                 .format(walking_time=round(self.estimate_walking_time(start_point, end_point), 2))
         )
-        return Response(
-            self.serialize_linestring(self.build_route((start_point, end_point, start_point)))
-        )
+        route_linestring = self.build_route(self.get_points_for_round_route(start_point, end_point))
+        return Response(self.serialize_linestring(route_linestring))
 
 
 class ConcreteRouteView(AbstractRouteView):
