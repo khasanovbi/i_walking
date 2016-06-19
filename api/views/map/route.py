@@ -25,8 +25,7 @@ class AbstractRouteView(views.APIView):
 
     def estimate_walking_time(self, point1, point2):
         # Время в минутах
-        return round(math.pi * great_circle(point1['coordinates'], point2['coordinates']).meters /
-                     self.SPEED, 2)
+        return great_circle(point1['coordinates'], point2['coordinates']).meters / self.SPEED
 
     def serialize_linestring(self, linestring):
         result = [
@@ -67,13 +66,11 @@ class AbstractRouteView(views.APIView):
             final_linestring_positions.extend(linestring['coordinates'][1:])
         return LineString(tuple(final_linestring_positions))
 
-    def prepare_route_response(self, start_point, end_point, route_points, end_point_metadata=None,
-                               alternatives_count=0):
+    # def _get_route_points_data(self, route_points):
+    #     self.api.
 
-        walking_time = self.estimate_walking_time(start_point, end_point)
-        print(
-            'Оценочное время прогулки {walking_time} минут.'.format(walking_time=walking_time)
-        )
+    def prepare_route_response(self, walking_time, route_points, end_point_metadata=None,
+                               alternatives_count=0):
         return Response(
             {
                 'walking_time': walking_time,
@@ -191,9 +188,12 @@ class POIRouteView(AbstractRouteView):
         raw_point = serializer.data['point']
         start_point = Point((raw_point['longitude'], raw_point['latitude']))
         end_point, metadata = self.search_destination(start_point, serializer.data['type'])
+        walking_time = math.pi * self.estimate_walking_time(start_point, end_point)
+        print(
+            'Оценочное время прогулки {walking_time} минут.'.format(walking_time=walking_time)
+        )
         response = self.prepare_route_response(
-            start_point=start_point,
-            end_point=end_point,
+            walking_time,
             route_points=self.get_points_for_round_route(start_point, end_point),
             end_point_metadata=metadata
         )
@@ -211,9 +211,9 @@ class ConcreteRouteView(AbstractRouteView):
         raw_end_point = serializer.data['end_point']
         start_point = Point((raw_start_point['longitude'], raw_start_point['latitude']))
         end_point = Point((raw_end_point['longitude'], raw_end_point['latitude']))
+        walking_time = self.estimate_walking_time(start_point, end_point)
         response = self.prepare_route_response(
-            start_point=start_point,
-            end_point=end_point,
+            walking_time=walking_time,
             route_points=(start_point, end_point),
             alternatives_count=self.ALTERNATIVES_COUNT,
         )
