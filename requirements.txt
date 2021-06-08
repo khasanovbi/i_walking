@@ -7,6 +7,6 @@ djangorestframework==3.3.3
 geojson==1.3.2
 geopy==1.11.0
 git+git://github.com/geomet/geomet.git
-Pillow==6.2.0
+Pillow==8.2.0
 psycopg2==2.6.1
 requests==2.10.0
